@@ -302,6 +302,24 @@ function fontGlyph(fontName: string, ch: string): string | undefined {
   return undefined;
 }
 
+/**
+ * Decode one mojibake glyph of a CP1255-codepage font to its Hebrew letter,
+ * from the font name and the Latin-1 codepoint mupdf reports for it. Mirrors
+ * the per-character precedence of {@link fixMojibakeRuns} so the encoding fixer
+ * (which rewrites `/ToUnicode`) recovers exactly the same letters the inline
+ * text pipeline does: CP1255 Hebrew block → Z extra-byte table → font ASCII
+ * glyph slot → ASCII passthrough → drop. Returns `''` for "no letter here".
+ */
+export function decodeCp1255Glyph(fontName: string, uni: number): string {
+  if (isCp1255Hebrew(uni)) return String.fromCodePoint(uni - 0xe0 + 0x05d0);
+  const extra = Z_EXTRA_HEBREW_BYTES[uni];
+  if (extra !== undefined) return extra;
+  const mapped = fontGlyph(fontName, String.fromCodePoint(uni));
+  if (mapped !== undefined) return mapped; // '' means "drop this slot"
+  if (isAsciiPrintable(uni)) return String.fromCodePoint(uni);
+  return '';
+}
+
 /** Quad axis projections we use repeatedly when re-sorting / re-spacing. */
 function quadXMin(q: mupdf.Quad): number {
   const a = q as unknown as number[];
@@ -718,6 +736,12 @@ export function renderPageImage(
  */
 export interface TagFontDecoders {
   lost: Map<string, AlphaResult>;
+  /**
+   * Font names classified as CP1255 codepage mojibake (mupdf reports their
+   * bytes as Latin-1). The text pipeline byte-decodes them inline; the encoding
+   * fixer uses this set to know which fonts get a CP1255-derived ToUnicode.
+   */
+  cp1255: Set<string>;
 }
 
 /**
@@ -821,8 +845,14 @@ export function buildTagFontDecoders(
   }
 
   const lost = new Map<string, AlphaResult>();
+  const cp1255 = new Set<string>();
   for (const [font, s] of stats) {
-    if (classifyFontRegime(s) !== 'lost') continue;
+    const regime = classifyFontRegime(s);
+    if (regime === 'cp1255') {
+      cp1255.add(font);
+      continue;
+    }
+    if (regime !== 'lost') continue;
     const r = solveAlphaFromVotes(
       votes.get(font) ?? new Map(),
       maxGid.get(font) ?? 0,
@@ -834,7 +864,7 @@ export function buildTagFontDecoders(
     // than risk emitting garbage from a mis-guessed offset.
     if (r.confident || s.total >= MIN_GLYPHS_FOR_MAXGID) lost.set(font, r);
   }
-  return { lost };
+  return { lost, cp1255 };
 }
 
 /**

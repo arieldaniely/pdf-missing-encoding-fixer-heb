@@ -3,7 +3,7 @@
   <head>
     <meta charset="UTF-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-    <title>תיקון מיפוי גופנים — Tag/Sappir PDF Fixer</title>
+    <title>תיקון מיפוי גופנים ב‑PDF — Hebrew PDF Text Fixer</title>
     <style>
       :root { color-scheme: light dark; }
       body { font-family: system-ui, "Segoe UI", Arial, sans-serif; max-width: 720px;
@@ -23,8 +23,9 @@
   </head>
   <body>
     <h1>תיקון מיפוי גופנים ב‑PDF</h1>
-    <p class="sub">העלו קובץ PDF שנוצר ב‑Tag/Sappir (או גופן עברי ישן ללא מיפוי תווים),
-      וקבלו בחזרה קובץ זהה למראית עין אך עם שכבת טקסט עברית נכונה — ניתנת לחיפוש והעתקה.</p>
+    <p class="sub">העלו קובץ PDF עברי שהטקסט בו יוצא משובש בהעתקה או בחיפוש (גופן ישן שאיבד את
+      מיפוי התווים), וקבלו בחזרה קובץ זהה לחלוטין למראית עין — אך עם טקסט עברי תקין,
+      ניתן לחיפוש ולהעתקה. הגופנים והעמודים המקוריים נשמרים כפי שהם; רק המיפוי מתוקן.</p>
 
     <div id="drop">גררו לכאן קובץ PDF, או לחצו לבחירה
       <input id="file" type="file" accept="application/pdf" hidden />
@@ -35,8 +36,8 @@
     <div id="out"></div>
 
     <p class="muted" dir="ltr">All processing runs locally in your browser (mupdf‑wasm). Nothing is uploaded.
-      Decodes Tag/Sappir <code>Adv*</code>, Shas FrankRuehl/Vilna, Bnei‑Baruch <code>Z_*</code> and
-      similar legacy fonts via the glyph‑id alphabet‑order method.</p>
+      Repairs the character→Unicode mapping of legacy Hebrew fonts in place — the original
+      page graphics are untouched, so the file looks identical but its text becomes correct.</p>
 
     <script type="module" src="/src/main.ts"></script>
   </body>

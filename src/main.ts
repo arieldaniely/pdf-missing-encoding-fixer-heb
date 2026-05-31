@@ -1,20 +1,10 @@
-import { fixPdf, inspectPdf } from './fix';
+import { fixPdfEncoding, inspectPdfEncoding } from './encoding-fix';
 
 const drop = document.getElementById('drop') as HTMLDivElement;
 const fileInput = document.getElementById('file') as HTMLInputElement;
 const log = document.getElementById('log') as HTMLDivElement;
 const bar = document.getElementById('bar') as HTMLProgressElement;
 const out = document.getElementById('out') as HTMLDivElement;
-
-let fontBytes: ArrayBuffer | null = null;
-async function getFont(): Promise<ArrayBuffer> {
-  if (fontBytes) return fontBytes;
-  const b = await fetch(`${import.meta.env.BASE_URL}hebrew.ttf`).then((r) =>
-    r.arrayBuffer(),
-  );
-  fontBytes = b;
-  return b;
-}
 
 function say(msg: string) {
   log.textContent = msg;
@@ -25,26 +15,32 @@ async function handle(file: File) {
   bar.hidden = false;
   bar.value = 0;
   try {
-    const bytes = new Uint8Array(await file.arrayBuffer());
-    const info = inspectPdf(bytes);
+    const info = inspectPdfEncoding(new Uint8Array(await file.arrayBuffer()));
     const fontList = info.lostFonts.length
       ? info.lostFonts.join(', ')
       : '(none — file already has correct text)';
     say(`קובץ: ${file.name}\nעמודים: ${info.pageCount}\nגופנים לתיקון: ${fontList}\n\nמעבד…`);
 
-    const font = await getFont();
-    const fixed = await fixPdf(bytes, font, {
-      onProgress: ({ page, pageCount }) => {
-        bar.value = Math.round((page / pageCount) * 100);
-        say(`מעבד עמוד ${page} מתוך ${pageCount}…`);
+    // Re-read: mupdf detaches the input buffer it opens, so inspect and fix each
+    // take their own copy.
+    const { bytes: fixed, fixedFonts } = fixPdfEncoding(
+      new Uint8Array(await file.arrayBuffer()),
+      {
+        onProgress: ({ font, fontCount, name }) => {
+          bar.value = Math.round((font / fontCount) * 100);
+          say(`מתקן גופן ${font} מתוך ${fontCount}: ${name}…`);
+        },
       },
-    });
+    );
 
     const blob = new Blob([fixed as BlobPart], { type: 'application/pdf' });
     const url = URL.createObjectURL(blob);
     const name = file.name.replace(/\.pdf$/i, '') + '.fixed.pdf';
     out.innerHTML = `<a class="dl" href="${url}" download="${name}">הורדת ה‑PDF המתוקן</a>`;
-    say(`הסתיים. ${info.pageCount} עמודים. גופנים שתוקנו: ${fontList}`);
+    const fixedList = fixedFonts.length
+      ? fixedFonts.map((f) => f.split('+').pop() ?? f).join(', ')
+      : '(none)';
+    say(`הסתיים. ${info.pageCount} עמודים. גופנים שתוקנו: ${fixedList}`);
     bar.hidden = true;
   } catch (e) {
     bar.hidden = true;

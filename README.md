@@ -68,9 +68,10 @@ npm run build      # production build into dist/
 
 ## Deploy (GitHub Pages)
 
-Push to `main`. The included workflow builds with `VITE_BASE=/tag-pdf-fixer/`
-and publishes `dist/` to Pages. Enable Pages → "GitHub Actions" in the repo
-settings once.
+Push to `master`. The included workflow builds with
+`VITE_BASE=/pdf-missing-encoding-fixer-heb/` (the repo name, so asset paths
+resolve under the project Pages URL) and publishes `dist/` to Pages. Enable
+Pages → "GitHub Actions" in the repo settings once.
 
 ## Limitations
 

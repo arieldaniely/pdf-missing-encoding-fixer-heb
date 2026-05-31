@@ -26,7 +26,7 @@ jobs:
       - run: npm install
       - run: npm run build
         env:
-          VITE_BASE: /tag-pdf-fixer/
+          VITE_BASE: /pdf-missing-encoding-fixer-heb/
       - uses: actions/upload-pages-artifact@v3
         with:
           path: dist

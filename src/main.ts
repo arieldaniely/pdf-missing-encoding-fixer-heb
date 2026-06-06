@@ -10,16 +10,36 @@ function say(msg: string) {
   log.textContent = msg;
 }
 
+function displayFontName(font: string): string {
+  return font.split('+').pop() ?? font;
+}
+
+function compactFontList(fonts: string[], empty: string, limit = 24): string {
+  const unique = [...new Set(fonts.map(displayFontName))].sort((a, b) =>
+    a.localeCompare(b),
+  );
+  if (unique.length === 0) return empty;
+  const shown = unique.slice(0, limit).join(', ');
+  const more = unique.length > limit ? `, ועוד ${unique.length - limit}` : '';
+  return `${shown}${more}`;
+}
+
 async function handle(file: File) {
   out.innerHTML = '';
   bar.hidden = false;
   bar.value = 0;
   try {
     const info = inspectPdfEncoding(new Uint8Array(await file.arrayBuffer()));
-    const fontList = info.lostFonts.length
-      ? info.lostFonts.join(', ')
-      : '(none — file already has correct text)';
-    say(`קובץ: ${file.name}\nעמודים: ${info.pageCount}\nגופנים לתיקון: ${fontList}\n\nמעבד…`);
+    const fontList = compactFontList(
+      info.lostFonts,
+      '(אין - נראה שכבר יש מיפוי טקסט תקין)',
+    );
+    say(
+      `קובץ: ${file.name}\n` +
+        `עמודים: ${info.pageCount}\n` +
+        `פונטים לתיקון: ${fontList}\n\n` +
+        'מעבד...',
+    );
 
     // Re-read: mupdf detaches the input buffer it opens, so inspect and fix each
     // take their own copy.
@@ -28,7 +48,7 @@ async function handle(file: File) {
       {
         onProgress: ({ font, fontCount, name }) => {
           bar.value = Math.round((font / fontCount) * 100);
-          say(`מתקן גופן ${font} מתוך ${fontCount}: ${name}…`);
+          say(`מתקן פונט ${font} מתוך ${fontCount}: ${name}...`);
         },
       },
     );
@@ -36,11 +56,12 @@ async function handle(file: File) {
     const blob = new Blob([fixed as BlobPart], { type: 'application/pdf' });
     const url = URL.createObjectURL(blob);
     const name = file.name.replace(/\.pdf$/i, '') + '.fixed.pdf';
-    out.innerHTML = `<a class="dl" href="${url}" download="${name}">הורדת ה‑PDF המתוקן</a>`;
-    const fixedList = fixedFonts.length
-      ? fixedFonts.map((f) => f.split('+').pop() ?? f).join(', ')
-      : '(none)';
-    say(`הסתיים. ${info.pageCount} עמודים. גופנים שתוקנו: ${fixedList}`);
+    out.innerHTML = `<a class="dl" href="${url}" download="${name}">הורדת ה-PDF המתוקן</a>`;
+    const fixedList = compactFontList(fixedFonts, '(אין)');
+    say(
+      `הסתיים. ${info.pageCount} עמודים.\n` +
+        `פונטים שתוקנו: ${fixedList}`,
+    );
     bar.hidden = true;
   } catch (e) {
     bar.hidden = true;

@@ -1,6 +1,6 @@
 import * as mupdf from 'mupdf';
 import { decodeGid } from './tag-decode';
-import { buildTagFontDecoders, decodeCp1255Glyph } from './textmap';
+import { buildHebrewNameCodeMap, buildTagFontDecoders, decodeCp1255Glyph } from './textmap';
 
 export interface EncodingFixProgress {
   font: number;
@@ -53,6 +53,7 @@ export function fixPdfEncoding(
   // dictionary is handled individually — two subsets can share a `/BaseFont`
   // yet carry different `/Encoding /Differences`, hence different code maps.
   type Target =
+    | { objNum: number; name: string; kind: 'named'; table: Map<number, string> }
     | { objNum: number; name: string; kind: 'lost'; alpha: number }
     | { objNum: number; name: string; kind: 'cp1255' };
   const targets: Target[] = [];
@@ -71,6 +72,11 @@ export function fixPdfEncoding(
     if (!sub || !sub.isName() || !SIMPLE_SUBTYPES.has(sub.asName())) continue;
     const bf = o.get('BaseFont');
     const name = bf && bf.isName() ? bf.asName() : '';
+    const namedTable = buildHebrewNameCodeMap(o);
+    if (namedTable.size >= 3) {
+      targets.push({ objNum: i, name, kind: 'named', table: namedTable });
+      continue;
+    }
     const alpha = alphaByName.get(name);
     if (alpha !== undefined) targets.push({ objNum: i, name, kind: 'lost', alpha });
     else if (decoders.cp1255.has(name))
@@ -81,6 +87,14 @@ export function fixPdfEncoding(
   for (let t = 0; t < targets.length; t++) {
     const target = targets[t];
     opts?.onProgress?.({ font: t + 1, fontCount: targets.length, name: target.name });
+    if (target.kind === 'named') {
+      if (target.table.size === 0) continue;
+      const cmap = buildToUnicodeCMap(target.table);
+      const stream = doc.addStream(cmap, doc.newDictionary());
+      doc.newIndirect(target.objNum).put('ToUnicode', stream);
+      if (!fixedFonts.includes(target.name)) fixedFonts.push(target.name);
+      continue;
+    }
     // Recover this dictionary's code→glyph map by probing, then decode each
     // glyph according to the font's regime: GID-alphabet for `lost`, codepage
     // lookup on mupdf's mojibake unicode for `cp1255`.
@@ -214,6 +228,10 @@ export function inspectPdfEncoding(srcBytes: Uint8Array): {
   const decoders = buildTagFontDecoders(doc);
   return {
     pageCount: doc.countPages(),
-    lostFonts: [...decoders.lost.keys()].map((f) => f.split('+').pop() ?? f),
+    lostFonts: [
+      ...decoders.namedGlyphs.keys(),
+      ...decoders.lost.keys(),
+      ...decoders.cp1255.keys(),
+    ].map((f) => f.split('+').pop() ?? f),
   };
 }

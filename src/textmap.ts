@@ -735,6 +735,11 @@ export function renderPageImage(
  * (they stay on the existing unicode / byte-decode paths).
  */
 export interface TagFontDecoders {
+  /**
+   * Fonts whose `/Encoding /Differences` glyph names are enough to recover the
+   * real Hebrew identity. Keyed by font name, then glyph-id.
+   */
+  namedGlyphs: Map<string, Map<number, string>>;
   lost: Map<string, AlphaResult>;
   /**
    * Font names classified as CP1255 codepage mojibake (mupdf reports their
@@ -742,6 +747,195 @@ export interface TagFontDecoders {
    * fixer uses this set to know which fonts get a CP1255-derived ToUnicode.
    */
   cp1255: Set<string>;
+}
+
+const GLYPH_NAME_TO_HEBREW: Record<string, string> = {
+  alef: 'א',
+  alefhebrew: 'א',
+  bet: 'ב',
+  bethebrew: 'ב',
+  gimel: 'ג',
+  gimelhebrew: 'ג',
+  dalet: 'ד',
+  dalethebrew: 'ד',
+  he: 'ה',
+  hehebrew: 'ה',
+  vav: 'ו',
+  vavhebrew: 'ו',
+  zayin: 'ז',
+  zayinhebrew: 'ז',
+  het: 'ח',
+  hethebrew: 'ח',
+  tet: 'ט',
+  tethebrew: 'ט',
+  yod: 'י',
+  yodhebrew: 'י',
+  kaffinal: 'ך',
+  finalkafhebrew: 'ך',
+  kaf: 'כ',
+  kafhebrew: 'כ',
+  lamed: 'ל',
+  lamedhebrew: 'ל',
+  memfinal: 'ם',
+  finalmemhebrew: 'ם',
+  mem: 'מ',
+  memhebrew: 'מ',
+  nunfinal: 'ן',
+  finalnunhebrew: 'ן',
+  nun: 'נ',
+  nunhebrew: 'נ',
+  samekh: 'ס',
+  samekhhebrew: 'ס',
+  ayin: 'ע',
+  ayinhebrew: 'ע',
+  pefinal: 'ף',
+  finalpehebrew: 'ף',
+  pe: 'פ',
+  pehebrew: 'פ',
+  tsadifinal: 'ץ',
+  finaltsadihebrew: 'ץ',
+  tsadi: 'צ',
+  tsadihebrew: 'צ',
+  qof: 'ק',
+  qofhebrew: 'ק',
+  resh: 'ר',
+  reshhebrew: 'ר',
+  shin: 'ש',
+  shinhebrew: 'ש',
+  tav: 'ת',
+  tavhebrew: 'ת',
+  // MacRoman glyph names interpreted as Mac OS Hebrew bytes.
+  daggerdbl: 'א',
+  periodcentered: 'ב',
+  quotesinglbase: 'ג',
+  quotedblbase: 'ד',
+  perthousand: 'ה',
+  Acircumflex: 'ו',
+  Ecircumflex: 'ז',
+  Aacute: 'ח',
+  Edieresis: 'ט',
+  Egrave: 'י',
+  Iacute: 'ך',
+  Icircumflex: 'כ',
+  Idieresis: 'ל',
+  Igrave: 'ם',
+  Oacute: 'מ',
+  Ocircumflex: 'ן',
+  applelogo: 'נ',
+  Ograve: 'ס',
+  Uacute: 'ע',
+  Ucircumflex: 'ף',
+  Ugrave: 'פ',
+  dotlessi: 'ץ',
+  circumflex: 'צ',
+  tilde: 'ק',
+  macron: 'ר',
+  breve: 'ש',
+  dotaccent: 'ת',
+};
+
+const BIBLICAL_TRANSLIT_TO_HEBREW: Record<string, string> = {
+  grave: 'א',
+  A: 'ב',
+  a: 'ב',
+  b: 'ג',
+  C: 'ד',
+  c: 'ד',
+  d: 'ה',
+  E: 'ו',
+  e: 'ו',
+  F: 'ו',
+  f: 'ז',
+  g: 'ח',
+  h: 'ט',
+  I: 'י',
+  i: 'י',
+  K: 'ך',
+  L: 'ך',
+  k: 'כ',
+  l: 'ל',
+  divide: 'ל',
+  M: 'ם',
+  m: 'ם',
+  n: 'מ',
+  P: 'נ',
+  p: 'נ',
+  o: 'ן',
+  q: 'ס',
+  r: 'ע',
+  s: 'פ',
+  w: 'ק',
+  x: 'ר',
+  X: 'ש',
+  W: 'ש',
+  Y: 'ת',
+  z: 'ת',
+  T: 'ק',
+  otilde: 'א',
+  colon: ':',
+};
+
+const BIBLICAL_TRANSLIT_MARK_TO_HEBREW: Record<string, string> = {
+  section: '\u05B0',
+  brokenbar: '\u05B4',
+  copyright: '\u05B7',
+  dieresis: '\u05B8',
+  currency: '\u05B6',
+  yen: '\u05B5',
+  exclamdown: '\u05B1',
+  Ydieresis: '\u05B9',
+  cent: '\u05B3\u05BC',
+};
+
+const BIBLICAL_TRANSLIT_MARK_NAMES = new Set(
+  Object.keys(BIBLICAL_TRANSLIT_MARK_TO_HEBREW),
+);
+
+function isBiblicalTranslitEncoding(names: string[]): boolean {
+  let letters = 0;
+  let marks = 0;
+  for (const name of names) {
+    if (BIBLICAL_TRANSLIT_TO_HEBREW[name] !== undefined) letters++;
+    if (BIBLICAL_TRANSLIT_MARK_NAMES.has(name)) marks++;
+  }
+  return letters >= 12 && marks >= 3;
+}
+
+export function decodeHebrewGlyphName(name: string): string | undefined {
+  return GLYPH_NAME_TO_HEBREW[name];
+}
+
+export function buildHebrewNameCodeMap(fontObj: mupdf.PDFObject): Map<number, string> {
+  const map = new Map<number, string>();
+  const enc = fontObj.get('Encoding');
+  if (!enc || enc.isNull()) return map;
+  const diffs = enc.resolve().get('Differences');
+  if (!diffs || diffs.isNull() || !diffs.isArray()) return map;
+  const names: string[] = [];
+  for (let i = 0; i < diffs.length; i++) {
+    const item = diffs.get(i);
+    if (item.isName()) names.push(item.asName());
+  }
+  const biblicalTranslit = isBiblicalTranslitEncoding(names);
+  let code = 0;
+  for (let i = 0; i < diffs.length; i++) {
+    const item = diffs.get(i);
+    if (item.isInteger()) {
+      code = item.asNumber();
+      continue;
+    }
+    if (!item.isName()) continue;
+    const name = item.asName();
+    const decoded =
+      decodeHebrewGlyphName(name) ??
+      (biblicalTranslit
+        ? BIBLICAL_TRANSLIT_TO_HEBREW[name] ??
+          BIBLICAL_TRANSLIT_MARK_TO_HEBREW[name]
+        : undefined);
+    if (decoded !== undefined) map.set(code, decoded);
+    code++;
+  }
+  return map;
 }
 
 /**
@@ -753,6 +947,8 @@ const MIN_GLYPHS_FOR_MAXGID = 200;
 
 const fontNameOf = (font: mupdf.Font | null | undefined): string =>
   (font && typeof font.getName === 'function' ? font.getName() : '') ?? '';
+
+const SIMPLE_FONT_SUBTYPES = new Set(['Type1', 'TrueType', 'Type3', 'MMType1']);
 
 /**
  * Run a page through a no-op rendering device purely to observe each glyph's
@@ -801,6 +997,45 @@ function forEachGlyph(
   }
 }
 
+function probeFontGlyphs(
+  doc: mupdf.PDFDocument,
+  fontObjNum: number,
+): { gid: number; uni: number }[] {
+  const fontObj = doc.newIndirect(fontObjNum);
+  const resources = doc.newDictionary();
+  const fonts = doc.newDictionary();
+  fonts.put('F', fontObj);
+  resources.put('Font', fonts);
+
+  let hex = '';
+  for (let c = 0; c < 256; c++) hex += c.toString(16).padStart(2, '0');
+  const pageObj = doc.addPage([0, 0, 4000, 200], 0, resources, `BT /F 10 Tf 0 100 Td <${hex}> Tj ET`);
+  doc.insertPage(-1, pageObj);
+  const pageIdx = doc.countPages() - 1;
+
+  const glyphs: { gid: number; uni: number }[] = [];
+  const page = doc.loadPage(pageIdx);
+  const device = new mupdf.Device({
+    fillText: (text) =>
+      text.walk({
+        showGlyph(_font, _trm, gid, uni) {
+          glyphs.push({ gid, uni: uni || 0 });
+        },
+      }),
+  });
+  try {
+    page.run(device, mupdf.Matrix.identity);
+  } catch {
+    glyphs.length = 0;
+  } finally {
+    device.close();
+    device.destroy();
+    page.destroy();
+    doc.deletePage(pageIdx);
+  }
+  return glyphs;
+}
+
 /**
  * Scan the document, classify every font, and solve `alpha` for the
  * lost-mapping ones. Scanning is capped (`maxPages`, default 60) — body fonts
@@ -844,9 +1079,42 @@ export function buildTagFontDecoders(
     });
   }
 
+  const namedGlyphs = new Map<string, Map<number, string>>();
+  const objCount = doc.countObjects();
+  for (let i = 1; i < objCount; i++) {
+    let o: mupdf.PDFObject;
+    try {
+      o = doc.newIndirect(i).resolve();
+    } catch {
+      continue;
+    }
+    if (!o || !o.isDictionary()) continue;
+    const type = o.get('Type');
+    if (!type || !type.isName() || type.asName() !== 'Font') continue;
+    const sub = o.get('Subtype');
+    if (!sub || !sub.isName() || !SIMPLE_FONT_SUBTYPES.has(sub.asName())) continue;
+    const bf = o.get('BaseFont');
+    const name = bf && bf.isName() ? bf.asName() : '';
+    if (!stats.has(name)) continue;
+    const codeMap = buildHebrewNameCodeMap(o);
+    if (codeMap.size < 3) continue;
+    const glyphs = probeFontGlyphs(doc, i);
+    if (glyphs.length !== 256) continue;
+    let glyphMap = namedGlyphs.get(name);
+    if (!glyphMap) {
+      glyphMap = new Map();
+      namedGlyphs.set(name, glyphMap);
+    }
+    for (const [code, ch] of codeMap) {
+      const gid = glyphs[code]?.gid ?? 0;
+      if (gid !== 0) glyphMap.set(gid, ch);
+    }
+  }
+
   const lost = new Map<string, AlphaResult>();
   const cp1255 = new Set<string>();
   for (const [font, s] of stats) {
+    if (namedGlyphs.has(font)) continue;
     const regime = classifyFontRegime(s);
     if (regime === 'cp1255') {
       cp1255.add(font);
@@ -864,7 +1132,7 @@ export function buildTagFontDecoders(
     // than risk emitting garbage from a mis-guessed offset.
     if (r.confident || s.total >= MIN_GLYPHS_FOR_MAXGID) lost.set(font, r);
   }
-  return { lost, cp1255 };
+  return { namedGlyphs, lost, cp1255 };
 }
 
 /**
@@ -883,7 +1151,7 @@ function buildLostGlyphMap(
 ): Map<string, { gid: number; unicode: number }> {
   const map = new Map<string, { gid: number; unicode: number }>();
   forEachGlyph(doc, pageIdx, (font, gid, unicode, x, y) => {
-    if (!decoders.lost.has(font)) return;
+    if (!decoders.lost.has(font) && !decoders.namedGlyphs.has(font)) return;
     map.set(`${font}|${originKey(x, y)}`, { gid, unicode });
   });
   return map;
@@ -905,7 +1173,7 @@ export function extractPageText(
   try {
     stext = page.toStructuredText('preserve-whitespace');
     const lostGlyphs =
-      decoders && decoders.lost.size > 0
+      decoders && (decoders.lost.size > 0 || decoders.namedGlyphs.size > 0)
         ? buildLostGlyphMap(doc, pageIdx, decoders)
         : null;
     return walkStructuredText(stext, decoders ?? null, lostGlyphs);
@@ -951,6 +1219,15 @@ function walkStructuredText(
       const h = quadYMax(quad) - quadYMin(quad);
       if (h > 0 && h < 1) return;
       const fontName = fontNameOf(font);
+      const named = decoders?.namedGlyphs.get(fontName);
+      if (named && lostGlyphs) {
+        const g = lostGlyphs.get(`${fontName}|${originKey(origin[0], origin[1])}`);
+        if (g && named.has(g.gid)) {
+          const decoded = named.get(g.gid) ?? '';
+          if (decoded) curLine?.chars.push({ ch: decoded, quad, font: fontName });
+          return;
+        }
+      }
       // Lost-mapping font: replace mupdf's garbage unicode with the letter
       // recovered from this glyph's glyph-id (matched by pen origin). An empty
       // decode (undecodable low-gid noise) drops the glyph entirely.

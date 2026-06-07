@@ -12,8 +12,12 @@
       h1 { font-size: 1.5rem; margin-bottom: .25rem; }
       .sub { opacity: .7; margin-top: 0; font-size: .95rem; }
       #drop { border: 2px dashed currentColor; border-radius: 12px; padding: 2.5rem 1rem;
-              text-align: center; opacity: .8; cursor: pointer; margin: 1.5rem 0; }
+              text-align: center; opacity: .8; margin: 1.5rem 0; }
       #drop.over { opacity: 1; background: rgba(127,127,127,.12); }
+      .actions { display: flex; flex-wrap: wrap; gap: .75rem; justify-content: center; margin-top: 1rem; }
+      button { border: 1px solid currentColor; border-radius: 8px; padding: .55rem 1rem;
+               background: transparent; color: inherit; cursor: pointer; font: inherit; font-weight: 600; }
+      button.primary { background: #2563eb; border-color: #2563eb; color: #fff; }
       #log { white-space: pre-wrap; font-family: ui-monospace, monospace; font-size: .85rem;
              background: rgba(127,127,127,.1); border-radius: 8px; padding: 1rem; min-height: 3rem; }
       a.dl { display: inline-block; margin-top: 1rem; padding: .6rem 1.2rem; border-radius: 8px;
@@ -28,8 +32,13 @@
       מיפוי התווים), וקבלו בחזרה קובץ זהה לחלוטין למראית עין — אך עם טקסט עברי תקין,
       ניתן לחיפוש ולהעתקה. הגופנים והעמודים המקוריים נשמרים כפי שהם; רק המיפוי מתוקן.</p>
 
-    <div id="drop">גררו לכאן קובץ PDF, או לחצו לבחירה
-      <input id="file" type="file" accept="application/pdf" hidden />
+    <div id="drop">גררו לכאן קובץ PDF, כמה קבצי PDF, או תיקייה שלמה
+      <div class="actions">
+        <button id="pick-file" class="primary" type="button">בחירת קבצים</button>
+        <button id="pick-folder" type="button">בחירת תיקייה</button>
+      </div>
+      <input id="file" type="file" accept="application/pdf" multiple hidden />
+      <input id="folder" type="file" accept="application/pdf" multiple hidden />
     </div>
 
     <progress id="bar" max="100" value="0" hidden></progress>
